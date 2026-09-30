@@ -1,5 +1,5 @@
 /* Seinfeld-only notes. The :has() scope selects the nine-season Seinfeld page without affecting the other series. */
-body:has(#season-9):not(:has(#season-10)) .episode::after{grid-column:2;color:#c3b69b;font-size:13px;margin-top:3px;padding-left:10px;border-left:2px solid var(--accent2)}
+body:has(#season-9):not(:has(#season-10)) .episode::after{grid-column:2;color:#4f4330;font-size:13px;margin-top:3px;padding-left:10px;border-left:2px solid var(--accent2)}
 body:has(#season-9):not(:has(#season-10)) #season-4 .episode:nth-child(11)::after{content:"Top-rated classic: the four friends turn a private test of self-control into a high-stakes competition. Kramer collapses almost immediately, George is trapped in an embarrassing hospital situation, and everyone gets increasingly desperate."}
 body:has(#season-9):not(:has(#season-10)) #season-5 .episode:nth-child(22)::after{content:"George decides every instinct he has is wrong and starts doing the exact opposite. His blunt honesty suddenly works, while Elaine's life unravels and Jerry remains bizarrely even."}
 body:has(#season-9):not(:has(#season-10)) #season-7 .episode:nth-child(6)::after{content:"The gang confronts a brilliant but tyrannical soup vendor with a rigid ordering ritual. George cannot get his bread, Elaine refuses to obey, and Kramer somehow becomes the vendor's friend."}
