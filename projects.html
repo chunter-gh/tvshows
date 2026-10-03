@@ -1,25 +1,54 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>Projects</title><style>
-#matrix{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.28}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f3f0e8">
+<title>Projects</title>
+<style>
 :root{color-scheme:light;--paper:#f3f0e8;--surface:#fffdf8;--ink:#20262b;--muted:#667078;--line:#d8d3c9;--blue:#315f75;--teal:#6f8f88;--copper:#a56b4f}
 *{box-sizing:border-box}
-body{margin:0;background:#000;color:#eaffea;font-family:Arial,"Helvetica Neue",sans-serif}
-.shell{width:min(1220px,calc(100% - 32px));margin:auto}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Arial,"Helvetica Neue",sans-serif;line-height:1.5}
+#matrix{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.28}
+.shell{position:relative;z-index:1;width:min(1220px,calc(100% - 32px));min-height:100vh;min-height:100svh;margin:auto;display:flex;flex-direction:column}
 header{padding:52px 0 32px;border-bottom:1px solid var(--line)}
-h1{font:500 clamp(48px,8vw,88px)/.95 Georgia,"Times New Roman",serif;letter-spacing:-.045em;margin:0;color:var(--ink)}
+h1{font:500 clamp(48px,8vw,88px)/.92 Georgia,"Times New Roman",serif;letter-spacing:-.045em;margin:0;color:var(--blue)}
 header p{color:var(--muted);font-size:17px;margin:16px 0 0}
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;padding:30px 0 64px}
-.card{display:flex;flex-direction:column;justify-content:space-between;min-height:270px;padding:28px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink);text-decoration:none;box-shadow:0 7px 20px #27353c0c;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-.card:hover{transform:translateY(-2px);border-color:#9ab0ae;box-shadow:0 12px 26px #27353c15}
-.num{font-size:12px;font-weight:600;letter-spacing:.14em;color:var(--copper)}
-h2{font:500 clamp(32px,3.3vw,42px)/1 Georgia,"Times New Roman",serif;margin:40px 0 12px;color:var(--ink)}
-.card p{color:#515b62;font-size:15px;line-height:1.6;margin:0;max-width:470px}
-.go{display:block;margin-top:24px;color:var(--blue);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
-.go:after{content:"  →";color:var(--copper)}
-@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.shell{width:min(100% - 22px,1220px)}header{padding-top:38px}.grid{grid-template-columns:1fr;gap:14px;padding-top:20px}.card{min-height:220px;padding:25px 26px}h2{margin-top:30px}}
-</style></head><body><canvas id="matrix"></canvas><div class="shell"><header><h1>Projects.</h1><p>One launch page for everything we're building.</p></header><main class="grid"><a class="card" href="https://games-z5k2.onrender.com/index.html"><div><span class="num">01 / GAMES</span><h2>Games</h2><p>Game room, casino and multiplayer projects.</p></div><span class="go">Open site</span></a><a class="card" href="https://chunter-gh.github.io/tvshows/"><div><span class="num">02 / TV</span><h2>TV Shows</h2><p>Season-by-season episode catalogs and notes.</p></div><span class="go">Open site</span></a><a class="card" href="https://chunter-gh.github.io/movies/"><div><span class="num">03 / MOVIES</span><h2>Movies</h2><p>Domestic box-office movies earning $100M+, organized by genre.</p></div><span class="go">Open site</span></a><a class="card" href="https://chunter-gh.github.io/music/"><div><span class="num">04 / MUSIC</span><h2>Music</h2><p>Artists, albums, songs and track lists.</p></div><span class="go">Open site</span></a><a class="card" href="https://chunter-gh.github.io/pics/"><div><span class="num">05 / PICTURES</span><h2>Picture Sorter</h2><p>Fast photo sorting project.</p></div><span class="go">Open site</span></a><a class="card" href="https://familytree-gprw.onrender.com/"><div><span class="num">06 / FAMILY · PRIVATE</span><h2>Family Tree 🔒</h2><p>Private genealogy and family-history project. Family records stay behind authenticated access.</p></div><span class="go">Private entrance</span></a></main></div><script>
+.grid{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(190px,1fr));gap:18px;padding:22px 0 28px}
+.card{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;min-height:0;padding:22px 24px;border:1px solid var(--line);border-radius:5px;background:rgba(255,253,248,.94);color:var(--ink);text-decoration:none;box-shadow:0 7px 20px rgba(39,53,60,.08);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.card::after{content:"";position:absolute;width:140px;height:140px;border-radius:50%;right:-65px;top:-65px;background:var(--tone,#dce7e5);opacity:.3;pointer-events:none}
+.card:hover{transform:translateY(-2px);border-color:#9ab0ae;box-shadow:0 12px 26px rgba(39,53,60,.13)}
+.card:focus-visible{outline:3px solid var(--teal);outline-offset:4px}
+.num{position:relative;z-index:1;font-size:12px;font-weight:700;letter-spacing:.16em;color:var(--copper)}
+h2{position:relative;z-index:1;font:500 clamp(30px,3vw,42px)/1 Georgia,"Times New Roman",serif;margin:26px 0 10px;color:var(--ink)}
+.card p{position:relative;z-index:1;color:var(--muted);font-size:16px;line-height:1.55;margin:0;max-width:470px}
+.go{position:relative;z-index:1;display:block;margin-top:28px;color:var(--blue);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.go:after{content:"  →";color:var(--teal)}
+.card:nth-child(1){--tone:#e7d4cd}.card:nth-child(2){--tone:#cddfdf}.card:nth-child(3){--tone:#dce7e5}.card:nth-child(4){--tone:#eee0c3}.card:nth-child(5){--tone:#d3e0d8}.card:nth-child(6){--tone:#ebddd1}
+@media(max-width:950px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none}.card{min-height:220px}}
+@media(max-width:700px){.shell{width:min(100% - 22px,1220px)}header{padding-top:38px}.grid{grid-template-columns:1fr;gap:14px;padding-top:20px}.card{min-height:220px;padding:25px 26px;border-radius:5px}h2{margin-top:30px}}
+@media(prefers-reduced-motion:reduce){.card{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="matrix" aria-hidden="true"></canvas>
+<div class="shell">
+<header><h1>Projects.</h1><p>One launch page for everything we're building.</p></header>
+<main class="grid">
+<a class="card" href="https://games-z5k2.onrender.com/index.html"><div><span class="num">01 / GAMES</span><h2>Games</h2><p>Game room, casino and multiplayer projects.</p></div><span class="go">Open site</span></a>
+<a class="card" href="https://chunter-gh.github.io/tvshows/"><div><span class="num">02 / TV</span><h2>TV Shows</h2><p>Season-by-season episode catalogs and notes.</p></div><span class="go">Open site</span></a>
+<a class="card" href="https://chunter-gh.github.io/movies/"><div><span class="num">03 / MOVIES</span><h2>Movies</h2><p>$100M+ domestic box-office movies across Action, Comedy, Horror, and Sci-Fi.</p></div><span class="go">Open site</span></a>
+<a class="card" href="https://chunter-gh.github.io/music/"><div><span class="num">04 / MUSIC</span><h2>Music</h2><p>Artists, albums, songs and track lists.</p></div><span class="go">Open site</span></a>
+<a class="card" href="https://chunter-gh.github.io/pics/"><div><span class="num">05 / PICTURES</span><h2>Picture Sorter</h2><p>Fast photo sorting project.</p></div><span class="go">Open site</span></a>
+<a class="card" href="https://familytree-gprw.onrender.com/"><div><span class="num">06 / FAMILY · PRIVATE</span><h2>Family Tree 🔒</h2><p>Private genealogy and family-history project. Family records stay behind authenticated access.</p></div><span class="go">Private entrance</span></a>
+<a class="card" href="launch/rundown.html"><div><span class="num">07 / MORNING</span><h2>Rundown</h2><p>News, markets, sports, my stocks, travel and projects.</p></div><span class="go">Open rundown</span></a>
+</main>
+</div>
+<script>
 (()=>{const canvas=document.getElementById("matrix"),ctx=canvas.getContext("2d"),reduce=matchMedia("(prefers-reduced-motion: reduce)").matches,glyphs="アカサタナハマヤラワ012345789ABCDEFGHIJKLMNOPQRSTUVWXYZ";let w=0,h=0,drops=[],font=18,last=0,frame;
 function resize(){const dpr=Math.min(devicePixelRatio||1,1.5);w=innerWidth;h=innerHeight;canvas.width=Math.floor(w*dpr);canvas.height=Math.floor(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);const cols=Math.ceil(w/font);drops=Array.from({length:cols},()=>Math.random()*h/font);draw(0)}
 function draw(time){if(!reduce&&time-last<48){frame=requestAnimationFrame(draw);return}last=time;ctx.fillStyle="rgba(2,10,8,.12)";ctx.fillRect(0,0,w,h);ctx.font=font+"px monospace";for(let i=0;i<drops.length;i++){const char=glyphs[Math.floor(Math.random()*glyphs.length)],x=i*font,y=drops[i]*font;ctx.fillStyle=Math.random()>.975?"#e1ffe8":"#27df67";ctx.fillText(char,x,y);if(y>h&&Math.random()>.975)drops[i]=0;else drops[i]+=.38+Math.random()*.48}if(!reduce)frame=requestAnimationFrame(draw)}
-addEventListener("resize",resize,{passive:true});resize();if(!reduce)frame=requestAnimationFrame(draw)})();
-</script></body></html>
+addEventListener("resize",resize,{passive:true});resize();if(!reduce)frame=requestAnimationFrame(draw);})();
+</script>
+</body>
+</html>
