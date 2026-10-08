@@ -23,44 +23,74 @@ summary{cursor:pointer;color:#ffda7e}
 <main>
 <small>FLICK TO SORT · PAGE 4 · READ-ONLY</small>
 <h1>Date Batch Capture</h1>
-<p>Choose the DCIM or Pictures folder. Page 4 groups its photos by nearby file dates. Photos stay on your phone; nothing is uploaded, moved, renamed, or deleted.</p>
-<p class="note">This scan uses file modification dates. Copying photos can change those dates, so review the results as suggestions.</p>
+<p>Choose the DCIM or Pictures folder. Page 4 groups photos by their embedded original capture date. Photos stay on your phone; nothing is uploaded, moved, renamed, or deleted.</p>
+<p class="note">Batches use the EXIF DateTimeOriginal capture date. Photos without that embedded date are listed separately and are not grouped by file modification date.</p>
 <button id="choose">Choose DCIM or Pictures folder</button>
 <input id="folder" type="file" accept="image/*" multiple webkitdirectory directory hidden>
 <p id="status">Ready. Choose a photo folder to scan.</p>
 <section id="results" aria-live="polite"></section>
 <p><a href="https://chunter.onrender.com/">Back to launcher</a></p>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
 <script>
 const input=document.querySelector('#folder'),status=document.querySelector('#status'),results=document.querySelector('#results');
 document.querySelector('#choose').addEventListener('click',()=>input.click());
 const imageExt=/\.(jpe?g|png|gif|webp|bmp|tiff?|avif|heic|heif)$/i;
-function dateKey(ms){const d=new Date(ms);return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()}
-function showBatches(files){
-  const photos=files.filter(f=>f.type.startsWith('image/')||imageExt.test(f.name)).map(f=>({file:f,day:dateKey(f.lastModified)})).sort((a,b)=>a.day-b.day);
-  if(!photos.length){status.textContent='No photos found in that folder.';return}
+function captureDate(meta){
+  const value=meta&&meta.DateTimeOriginal;
+  if(value instanceof Date&&!Number.isNaN(value.getTime()))return value;
+  if(typeof value==='string'){
+    const m=value.match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+    if(m){const d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);if(!Number.isNaN(d.getTime()))return d}
+  }
+  return null
+}
+function dateKey(date){return new Date(date.getFullYear(),date.getMonth(),date.getDate()).getTime()}
+function appendMissing(files){
+  if(!files.length)return;
+  const details=document.createElement('details'),label=document.createElement('summary');
+  label.textContent='Photos without an embedded original capture date ('+files.length+')';details.append(label);
+  for(const file of files){const line=document.createElement('p');line.className='file';line.textContent=file.webkitRelativePath||file.name;details.append(line)}
+  results.append(details)
+}
+async function showBatches(files){
+  results.replaceChildren();
+  if(!window.exifr){status.textContent='The capture-date reader did not load. Check your connection and reopen Page 4.';return}
+  const candidates=files.filter(f=>f.type.startsWith('image/')||imageExt.test(f.name));
+  const photos=[],missing=[];let next=0,done=0;
+  status.textContent='Reading embedded capture dates…';
+  const worker=async()=>{while(next<candidates.length){
+    const file=candidates[next++];
+    try{const meta=await window.exifr.parse(file,['DateTimeOriginal']);const date=captureDate(meta);if(date)photos.push({file,date,day:dateKey(date)});else missing.push(file)}
+    catch{missing.push(file)}
+    done++;if(done%25===0||done===candidates.length)status.textContent='Reading capture dates… '+done+' of '+candidates.length
+  }};
+  await Promise.all(Array.from({length:Math.min(8,candidates.length)},worker));
+  photos.sort((a,b)=>a.day-b.day||a.date-b.date);
+  if(!candidates.length){status.textContent='No photos found in that folder.';return}
+  if(!photos.length){status.textContent='No readable embedded original capture dates found in '+candidates.length+' photos.';appendMissing(missing);return}
   const batches=[];let batch=[];
   for(const photo of photos){
     if(batch.length&&photo.day-batch[batch.length-1].day>36*60*60*1000){batches.push(batch);batch=[]}
     batch.push(photo)
   }
   if(batch.length)batches.push(batch);
-  const candidates=batches.filter(b=>b.length>=10).sort((a,b)=>b[b.length-1].day-a[a.length-1].day);
-  status.textContent=photos.length+' photos scanned · '+candidates.length+' candidate batches with 10 or more photos';
-  if(!candidates.length){results.append(Object.assign(document.createElement('p'),{textContent:'No batches of 10 or more photos found.'}));return}
-  for(const group of candidates){
-    const start=new Date(group[0].day),end=new Date(group[group.length-1].day);
-    const days=new Set(group.map(p=>p.day)).size;
+  const groups=batches.filter(b=>b.length>=10).sort((a,b)=>b[b.length-1].day-a[a.length-1].day);
+  status.textContent=photos.length+' photos with original capture dates · '+groups.length+' candidate batches · '+missing.length+' without capture dates';
+  if(!groups.length)results.append(Object.assign(document.createElement('p'),{textContent:'No batches of 10 or more photos found.'}));
+  for(const group of groups){
+    const start=new Date(group[0].day),end=new Date(group[group.length-1].day),days=new Set(group.map(p=>p.day)).size;
     const card=document.createElement('article'),heading=document.createElement('h2');
     heading.textContent=start.toLocaleDateString()+(start.getTime()===end.getTime()?'':' – '+end.toLocaleDateString());
     const summary=document.createElement('p');summary.textContent=group.length+' photos · '+days+' active days';
-    const details=document.createElement('details'),label=document.createElement('summary');label.textContent='Show photo names';
+    const details=document.createElement('details'),label=document.createElement('summary');label.textContent='Show photo names and capture dates';
     details.append(label);
-    for(const item of group){const line=document.createElement('p');line.className='file';line.textContent=item.file.webkitRelativePath||item.file.name;details.append(line)}
+    for(const item of group){const line=document.createElement('p');line.className='file';line.textContent=(item.file.webkitRelativePath||item.file.name)+' · '+item.date.toLocaleString();details.append(line)}
     card.append(heading,summary,details);results.append(card)
   }
+  appendMissing(missing)
 }
-input.addEventListener('change',()=>{results.replaceChildren();if(!input.files||!input.files.length){status.textContent='No folder selected.';return}showBatches(Array.from(input.files));input.value=''});
+input.addEventListener('change',()=>{if(!input.files||!input.files.length){status.textContent='No folder selected.';return}showBatches(Array.from(input.files));input.value=''});
 </script>
 </body>
 </html>
