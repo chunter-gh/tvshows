@@ -112,15 +112,15 @@ async function scanPictureFolders() {
 
 function readCaptureDate(bytes) {
   const ascii=(start,length)=>{let value='';for(let i=0;i<length&&start+i<bytes.length;i++)value+=String.fromCharCode(bytes[start+i]);return value};
-  const parse=value=>{const m=value.match(/^(\\d{4})[:\\-](\\d{2})[:\\-](\\d{2})[ T](\\d{2}):(\\d{2}):(\\d{2})/);if(!m)return null;const d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);return Number.isNaN(d.getTime())?null:m[1]+'-'+m[2]+'-'+m[3]};
+  const parse=value=>{const m=value.match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);if(!m)return null;const d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);return Number.isNaN(d.getTime())?null:m[1]+'-'+m[2]+'-'+m[3]};
   const tiff=(start,length)=>{const end=Math.min(bytes.length,start+length);if(start<0||start+8>end)return null;const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),order=ascii(start,2),little=order==='II';if(!little&&order!=='MM')return null;const u16=o=>o+2<=end?view.getUint16(o,little):null,u32=o=>o+4<=end?view.getUint32(o,little):null;if(u16(start+2)!==42)return null;const first=u32(start+4);if(first===null)return null;
-    const find=offset=>{const pos=start+offset,count=u16(pos);if(count===null||count>512)return null;let nested=null;for(let i=0;i<count;i++){const e=pos+2+i*12;if(e+12>end)break;const tag=u16(e),type=u16(e+2),n=u32(e+4);if(tag===0x8769&&type===4)nested=u32(e+8);if(tag===0x9003&&type===2&&n>0&&n<=128){const field=n<=4?e+8:start+u32(e+8);if(field>=start&&field+n<=end)return parse(ascii(field,n).replace(/\\0.*$/,'').trim())}}return nested};
+    const find=offset=>{const pos=start+offset,count=u16(pos);if(count===null||count>512)return null;let nested=null;for(let i=0;i<count;i++){const e=pos+2+i*12;if(e+12>end)break;const tag=u16(e),type=u16(e+2),n=u32(e+4);if(tag===0x8769&&type===4)nested=u32(e+8);if(tag===0x9003&&type===2&&n>0&&n<=128){const field=n<=4?e+8:start+u32(e+8);if(field>=start&&field+n<=end)return parse(ascii(field,n).replace(/\0.*$/,'').trim())}}return nested};
     const result=find(first);if(typeof result==='string')return result;if(Number.isInteger(result)&&result>0){const value=find(result);if(typeof value==='string')return value}return null};
   if(bytes.length<8)return null;
-  if(bytes[0]===0xff&&bytes[1]===0xd8){let p=2;while(p+4<bytes.length){if(bytes[p]!==0xff){p++;continue}while(bytes[p]===0xff)p++;const marker=bytes[p++];if(marker===0xda||marker===0xd9)break;if(marker===0xd8||marker===1||(marker>=0xd0&&marker<=0xd7))continue;const size=(bytes[p]<<8)|bytes[p+1];if(size<2)break;const data=p+2;if(marker===0xe1&&ascii(data,6)==='Exif\\0\\0')return tiff(data+6,size-8);p+=size}return null}
+  if(bytes[0]===0xff&&bytes[1]===0xd8){let p=2;while(p+4<bytes.length){if(bytes[p]!==0xff){p++;continue}while(bytes[p]===0xff)p++;const marker=bytes[p++];if(marker===0xda||marker===0xd9)break;if(marker===0xd8||marker===1||(marker>=0xd0&&marker<=0xd7))continue;const size=(bytes[p]<<8)|bytes[p+1];if(size<2)break;const data=p+2;if(marker===0xe1&&ascii(data,6)==='Exif\0\0')return tiff(data+6,size-8);p+=size}return null}
   if((bytes[0]===0x49&&bytes[1]===0x49&&bytes[2]===42&&bytes[3]===0)||(bytes[0]===0x4d&&bytes[1]===0x4d&&bytes[2]===0&&bytes[3]===42))return tiff(0,bytes.length);
-  if(ascii(0,8)==='\\x89PNG\\r\\n\\x1a\\n'){let p=8;while(p+12<=bytes.length){const n=new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false),kind=ascii(p+4,4),data=p+8;if(data+n>bytes.length)break;if(kind==='eXIf')return tiff(data,n);p+=12+n}return null}
-  if(ascii(0,4)==='RIFF'&&ascii(8,4)==='WEBP'){let p=12;while(p+8<=bytes.length){const kind=ascii(p,4),n=new DataView(bytes.buffer,bytes.byteOffset+p+4,4).getUint32(0,true),data=p+8;if(data+n>bytes.length)break;if(kind==='EXIF'){let off=data,len=n;if(ascii(off,6)==='Exif\\0\\0'){off+=6;len-=6}return tiff(off,len)}p+=8+n+(n%2)}}
+  if(ascii(0,8)==='\x89PNG\r\n\x1a\n'){let p=8;while(p+12<=bytes.length){const n=new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false),kind=ascii(p+4,4),data=p+8;if(data+n>bytes.length)break;if(kind==='eXIf')return tiff(data,n);p+=12+n}return null}
+  if(ascii(0,4)==='RIFF'&&ascii(8,4)==='WEBP'){let p=12;while(p+8<=bytes.length){const kind=ascii(p,4),n=new DataView(bytes.buffer,bytes.byteOffset+p+4,4).getUint32(0,true),data=p+8;if(data+n>bytes.length)break;if(kind==='EXIF'){let off=data,len=n;if(ascii(off,6)==='Exif\0\0'){off+=6;len-=6}return tiff(off,len)}p+=8+n+(n%2)}}
 
   if (ascii(4,4) === 'ftyp') {
     const boxList=(start,end)=>{
@@ -653,7 +653,7 @@ const server = http.createServer(async (request, response) => {
       const since = url.searchParams.get('since') || '';
       const through = url.searchParams.get('through') || new Date().toISOString().slice(0, 10);
       const minimum = Math.max(1, Math.min(100000, Number(url.searchParams.get('minimum')) || 50));
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(since) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(through)) return json(response, 400, { error: 'Use YYYY-MM-DD dates for since and through.' });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || !/^\d{4}-\d{2}-\d{2}$/.test(through)) return json(response, 400, { error: 'Use YYYY-MM-DD dates for since and through.' });
       json(response, 200, await scanCaptureDateBatches(since, through, minimum));
     } else if (request.method === 'GET' && url.pathname === '/api/destination-folders') {
       json(response, 200, { root: 'Pictures', folders: await scanDestinationFolders() });
