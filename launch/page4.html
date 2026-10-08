@@ -88,7 +88,7 @@ async function captureDate(file){
     }
     return null
   }
-  if(ascii(bytes,0,4)==='II**'||ascii(bytes,0,4)==='MM\0*')return tiffCapture(bytes,0,len);
+  if((bytes[0]===0x49&&bytes[1]===0x49&&bytes[2]===42&&bytes[3]===0)||(bytes[0]===0x4d&&bytes[1]===0x4d&&bytes[2]===0&&bytes[3]===42))return tiffCapture(bytes,0,len);
   if(ascii(bytes,0,8)==='\x89PNG\r\n\x1a\n'){
     let p=8;
     while(p+12<=len){const size=new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false),kind=ascii(bytes,p+4,4),data=p+8;if(data+size>len)break;if(kind==='eXIf')return tiffCapture(bytes,data,size);p+=12+size}
