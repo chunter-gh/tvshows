@@ -3,106 +3,105 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Page 4 — Date Batch Capture</title>
+<title>Page 4 — Date Batch Capture V98</title>
 <style>
 :root{color-scheme:dark;font:16px system-ui,sans-serif;color:#f6f1db;background:#10243a}
-body{margin:0;background:linear-gradient(#173f67,#0b1726);min-height:100vh}
-main{max-width:820px;margin:auto;padding:22px}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#173f67,#0b1726);min-height:100vh}
+main{max-width:960px;margin:auto;padding:18px}
 a{color:#ffda7e}
-button{background:#efc75d;color:#172b42;padding:14px 20px;border:0;border-radius:10px;font-weight:800;font-size:1rem}
-p{line-height:1.5;color:#d9e4ed}
-article{background:#183752;border:1px solid #53718a;padding:14px;margin:12px 0;border-radius:12px}
-article h2{font-size:1.1rem;margin:.1rem 0 .4rem;color:#ffda7e}
-article p{margin:.3rem 0}
-#status{background:#183752;padding:12px;border-radius:10px}
+h1{font-size:clamp(1.7rem,5vw,2.5rem);margin:.4rem 0}
+p{line-height:1.45;color:#d9e4ed}
+button{background:#efc75d;color:#172b42;padding:10px 14px;border:0;border-radius:9px;font-weight:800;font-size:1rem}
+button:disabled{opacity:.45}
+#status,.panel{background:#183752;border:1px solid #53718a;padding:13px;border-radius:12px;margin:12px 0}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.stat{background:#183752;border:1px solid #53718a;padding:11px;border-radius:10px;min-width:0}
+.stat span{display:block;color:#c7d5df;font-size:.86rem}
+.stat strong{display:block;color:#ffda7e;font-size:1.2rem;overflow-wrap:anywhere}
+#currentPhoto{font-size:.92rem;overflow-wrap:anywhere}
+#groups{display:grid;gap:14px;margin-top:14px}
+.group{background:#183752;border:1px solid #53718a;padding:13px;border-radius:14px}
+.group h2{font-size:1.08rem;color:#ffda7e;margin:0 0 5px}
+.group-count{margin:0 0 10px;color:#d9e4ed}
+.carousel{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px}
+.carousel button{padding:10px 13px;min-width:48px}
+.slide{min-width:0;text-align:center}
+.slide img{display:block;width:100%;height:min(52vh,430px);object-fit:contain;background:#071321;border-radius:10px}
+.preview-fallback{display:none;min-height:180px;place-content:center;background:#071321;border-radius:10px;color:#f6f1db;padding:18px}
+.caption{font-size:.88rem;overflow-wrap:anywhere;margin:7px 0 0;color:#d9e4ed}
+.audit-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.audit-table-wrap{overflow:auto;margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{border-bottom:1px solid #53718a;padding:7px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+th{color:#ffda7e}
+#pageInfo{color:#d9e4ed}
+summary{cursor:pointer;color:#ffda7e;font-weight:700}
+#scanAgain{margin-top:8px}
+details{margin-top:14px}
+@media(min-width:720px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 </head>
 <body>
 <main>
-<small>FLICK TO SORT · PAGE 4 · DATE BATCHES</small>
+<small>FLICK TO SORT · PAGE 4 · V98 · FULL-HISTORY EXIF SCAN</small>
 <h1>Date Batch Capture</h1>
-<p>Listing last-year dates with 50+ photos and auditing readable original capture dates across the full library.</p>
-<p id="status" role="status" aria-live="polite">Starting automatic phone scan…</p>
-<article id="exifStats" aria-live="polite">
-<h2>Original EXIF capture date readability</h2>
-<p>Photos scanned: <strong id="scannedCount">0</strong> / <span id="totalCount">searching folders…</span></p>
-<p>Readable original EXIF dates: <strong id="datedCount">0</strong></p>
-<p>No readable original EXIF date: <strong id="unreadableCount">0</strong></p>
-<p>Oldest readable original capture date: <strong id="earliestDate">checking…</strong></p>
-<p>Photos dated before October 31, 2025: <strong id="beforeCutoffCount">checking…</strong></p>
-</article>
-<button id="rescan" type="button" hidden>Scan again</button>
-<section id="results" aria-live="polite"></section>
+<p>Scans every supported photo file it can reach on the phone, from the oldest capture date onward. A date becomes a group at 25 photos. Each group has a left/right photo slider.</p>
+<div id="status" role="status" aria-live="polite">Connecting to the Termux photo scanner…</div>
+<div class="stats" aria-live="polite">
+  <div class="stat"><span>Photo files found</span><strong id="found">0</strong></div>
+  <div class="stat"><span>Photos scanned</span><strong id="scanned">0</strong></div>
+  <div class="stat"><span>Readable EXIF original dates</span><strong id="readable">0</strong></div>
+  <div class="stat"><span>No readable EXIF original date</span><strong id="missing">0</strong></div>
+  <div class="stat"><span>File read errors</span><strong id="readErrors">0</strong></div>
+  <div class="stat"><span>Oldest readable capture date</span><strong id="earliest">checking…</strong></div>
+  <div class="stat"><span>Folders Termux could not open</span><strong id="skipped">0</strong></div>
+  <div class="stat"><span>Groups with 25+ photos</span><strong id="groupTotal">0</strong></div>
+</div>
+<div id="currentPhoto" class="panel">Waiting for scan progress…</div>
+<button id="scanAgain" type="button" hidden>Scan again</button>
+<section id="groups" aria-live="polite"></section>
+<details id="auditDetails" class="panel" open>
+  <summary>All scanned photos — EXIF date and file status</summary>
+  <p id="auditCount">Photo-by-photo audit will appear here as the scan runs.</p>
+  <div class="audit-tools">
+    <button id="auditPrev" type="button" disabled>Previous 100</button>
+    <span id="pageInfo">Page 0 of 0</span>
+    <button id="auditNext" type="button" disabled>Next 100</button>
+    <button id="downloadCsv" type="button" disabled>Download full EXIF audit CSV</button>
+  </div>
+  <div class="audit-table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Photo file</th><th>EXIF DateTimeOriginal</th><th>Read status</th></tr></thead>
+      <tbody id="auditBody"></tbody>
+    </table>
+  </div>
+</details>
+<details class="panel">
+  <summary>File types included</summary>
+  <p id="extensions">Waiting for file scan…</p>
+</details>
 <p><a href="https://chunter.onrender.com/">Back to launcher</a></p>
 </main>
 <script>
 const scanner='http://127.0.0.1:3015';
-const status=document.querySelector('#status'),results=document.querySelector('#results'),rescan=document.querySelector('#rescan');
-const scannedCount=document.querySelector('#scannedCount'),totalCount=document.querySelector('#totalCount'),datedCount=document.querySelector('#datedCount'),unreadableCount=document.querySelector('#unreadableCount'),earliestDate=document.querySelector('#earliestDate'),beforeCutoffCount=document.querySelector('#beforeCutoffCount');
-const groups=new Map();
-function localDateKey(date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return y+'-'+m+'-'+d}
-function priorYear(date){const result=new Date(date);result.setFullYear(result.getFullYear()-1);return result}
-function dateLabel(key){const parts=key.split('-').map(Number);return new Date(parts[0],parts[1]-1,parts[2]).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}
-function receive(event){
-  if(event.type==='status'){status.textContent=event.message;return}
-  if(event.type==='folder-progress'){status.textContent='Searching phone folders… '+event.visited+' folders checked';totalCount.textContent='counting folders…';return}
-  if(event.type==='start'){totalCount.textContent=event.total;scannedCount.textContent='0';datedCount.textContent='0';unreadableCount.textContent='0';earliestDate.textContent='searching…';beforeCutoffCount.textContent='0';status.textContent='Found '+event.total+' photos in '+event.folders+' folders. Auditing all original capture dates…';return}
-  if(event.type==='progress'){scannedCount.textContent=event.scanned;totalCount.textContent=event.total;datedCount.textContent=Number.isFinite(event.dated)?event.dated:'counting…';unreadableCount.textContent=Number.isFinite(event.unreadable)?event.unreadable:'counting…';earliestDate.textContent=event.earliestDate||'none found yet';beforeCutoffCount.textContent=Number.isFinite(event.beforeCutoff)?event.beforeCutoff:'counting…';status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
-  if(event.type==='match'){
-    let group=groups.get(event.date);
-    if(!group){
-      const card=document.createElement('article'),heading=document.createElement('h2'),summary=document.createElement('p');
-      heading.textContent='Group '+(groups.size+1)+' — '+dateLabel(event.date);
-      summary.textContent=event.count+' photos so far';
-      card.append(heading,summary);results.append(card);group={summary,card};groups.set(event.date,group);
-    }else group.summary.textContent=event.count+' photos so far';
-    status.textContent='Found '+dateLabel(event.date)+' — '+event.count+' photos. Continuing scan…';
-    return
-  }
-  if(event.type==='complete'){
-    const data=event.result;
-    if(!Object.prototype.hasOwnProperty.call(data,'beforeCutoff')||!Object.prototype.hasOwnProperty.call(data,'earliestDate')){
-      earliestDate.textContent='requires latest V48';beforeCutoffCount.textContent='requires latest V48';
-      status.textContent='Full-history audit needs the latest V48 scanner. Restart it in Termux, then tap Scan again.';
-      rescan.hidden=false;return
-    }
-    for(const item of data.dates){const group=groups.get(item.date);if(group)group.summary.textContent=item.count+' photos taken on this date'}
-    if(!data.dates.length){const empty=document.createElement('p');empty.textContent='No dates in the past year have 50 or more photos.';results.append(empty)}
-    scannedCount.textContent=data.scanned;totalCount.textContent=data.scanned;datedCount.textContent=data.dated;unreadableCount.textContent=data.unreadable;earliestDate.textContent=data.earliestDate||'none found';beforeCutoffCount.textContent=data.beforeCutoff;status.textContent='Finished · '+data.scanned+' photos scanned · '+data.dated+' readable original EXIF dates · '+data.unreadable+' without a readable original EXIF date';
-    rescan.hidden=false;return
-  }
-  if(event.type==='error'){status.textContent=event.message;rescan.hidden=false}
-}
-async function scan(){
-  rescan.hidden=true;results.replaceChildren();groups.clear();
-  scannedCount.textContent='0';totalCount.textContent='connecting…';datedCount.textContent='0';unreadableCount.textContent='0';earliestDate.textContent='scanning…';beforeCutoffCount.textContent='0';
-  status.textContent='Connecting to phone scanner…';
-  const today=new Date(),since=localDateKey(priorYear(today)),through=localDateKey(today);
-  try{
-    const response=await fetch(scanner+'/api/date-batch-stream?since='+encodeURIComponent(since)+'&through='+encodeURIComponent(through)+'&minimum=50&auditBefore=2025-10-31',{cache:'no-store'});
-    if(!response.ok){
-      if(response.status===404)throw new Error('Phone scanner is an older version. Update to the latest V48 in Termux, then reload Page 4.');
-      const detail=await response.json().catch(()=>({}));throw new Error(detail.error||'Phone scan failed ('+response.status+').')
-    }
-    if(!response.body)throw new Error('This browser cannot display live scan progress.');
-    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',completed=false;
-    while(true){
-      const part=await reader.read();buffer+=decoder.decode(part.value||new Uint8Array(),{stream:!part.done});
-      let newline;
-      while((newline=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,newline).trim();buffer=buffer.slice(newline+1);if(!line)continue;const event=JSON.parse(line);receive(event);if(event.type==='complete')completed=true}
-      if(part.done)break
-    }
-    if(buffer.trim()){const event=JSON.parse(buffer);receive(event);if(event.type==='complete')completed=true}
-    if(!completed&&rescan.hidden)throw new Error('The scan connection ended early. Tap Scan again to retry.');
-  }catch(error){
-    status.textContent=error.message==='Failed to fetch'
-      ?'Could not reach the phone scanner. Start PicSorter V48 in Termux, then reload Page 4.'
-      :error.message;
-    rescan.hidden=false;
-  }
-}
-rescan.addEventListener('click',scan);
-scan();
+const $=selector=>document.querySelector(selector);
+const statusBox=$('#status'),currentPhoto=$('#currentPhoto'),groupHost=$('#groups'),scanAgain=$('#scanAgain');
+const foundEl=$('#found'),scannedEl=$('#scanned'),readableEl=$('#readable'),missingEl=$('#missing'),readErrorsEl=$('#readErrors'),earliestEl=$('#earliest'),skippedEl=$('#skipped'),groupTotalEl=$('#groupTotal');
+const auditRows=[],groupMap=new Map();let auditPage=0,scanFinished=false;
+function dateLabel(key){const p=key.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}
+function setCounts(data){if(data.total!==undefined)foundEl.textContent=data.total;if(data.scanned!==undefined)scannedEl.textContent=data.scanned;if(data.readable!==undefined)readableEl.textContent=data.readable;if(data.missing!==undefined)missingEl.textContent=data.missing;if(data.readErrors!==undefined)readErrorsEl.textContent=data.readErrors;if(data.earliestDate!==undefined)earliestEl.textContent=data.earliestDate||'none found';if(data.skippedFolders!==undefined)skippedEl.textContent=data.skippedFolders}
+function apiPhoto(photo){return scanner+'/api/date-photo?id='+encodeURIComponent(photo.id)}
+function drawGroup(group,index){group.heading.textContent='Group '+(index+1)+' — '+dateLabel(group.date);group.count.textContent=group.photos.length+' photos taken on this date';group.position.textContent=group.photos.length?'Photo '+(group.index+1)+' of '+group.photos.length:'Waiting for photos…';group.previous.disabled=group.index<=0;group.next.disabled=group.index>=group.photos.length-1;const photo=group.photos[group.index];group.image.hidden=!photo;group.fallback.style.display='none';if(!photo){group.caption.textContent='';return}group.image.alt=photo.name;group.image.src=apiPhoto(photo);group.caption.textContent=photo.location+' · EXIF DateTimeOriginal: '+(photo.dateTimeOriginal||'missing')}
+function makeGroup(date,photos){const card=document.createElement('article');card.className='group';const heading=document.createElement('h2'),count=document.createElement('p');count.className='group-count';const carousel=document.createElement('div');carousel.className='carousel';const previous=document.createElement('button'),next=document.createElement('button');previous.type=next.type='button';previous.textContent='‹';previous.setAttribute('aria-label','Previous photo');next.textContent='›';next.setAttribute('aria-label','Next photo');const slide=document.createElement('div');slide.className='slide';const image=document.createElement('img'),fallback=document.createElement('div'),position=document.createElement('div'),caption=document.createElement('p');fallback.className='preview-fallback';position.className='caption';caption.className='caption';slide.append(image,fallback,position,caption);carousel.append(previous,slide,next);card.append(heading,count,carousel);groupHost.append(card);const group={date,photos:photos.slice(),index:0,card,heading,count,previous,next,image,fallback,position,caption};groupMap.set(date,group);previous.addEventListener('click',()=>{group.index=Math.max(0,group.index-1);drawGroup(group,groupOrder().indexOf(group))});next.addEventListener('click',()=>{group.index=Math.min(group.photos.length-1,group.index+1);drawGroup(group,groupOrder().indexOf(group))});let startX=null;slide.addEventListener('pointerdown',event=>{startX=event.clientX});slide.addEventListener('pointerup',event=>{if(startX===null)return;const delta=event.clientX-startX;startX=null;if(Math.abs(delta)>45){group.index=Math.max(0,Math.min(group.photos.length-1,group.index+(delta<0?1:-1)));drawGroup(group,groupOrder().indexOf(group))}});image.onerror=()=>{image.hidden=true;fallback.style.display='grid';fallback.textContent='This photo format cannot be previewed in the browser. The file and EXIF date are still listed.'};drawGroup(group,groupOrder().indexOf(group));return group}
+function groupOrder(){return [...groupMap.values()].sort((a,b)=>a.date.localeCompare(b.date))}
+function createOrUpdateGroupEvent(event){let group=groupMap.get(event.date);if(event.type==='group'){if(!group)group=makeGroup(event.date,event.photos||[]);else group.photos=event.photos||group.photos}else if(event.type==='group-photo'&&group)group.photos.push(event.photo);const ordered=groupOrder();ordered.forEach((g,i)=>{g.heading.textContent='Group '+(i+1)+' — '+dateLabel(g.date);g.count.textContent=g.photos.length+' photos taken on this date';g.position.textContent=g.photos.length?'Photo '+(g.index+1)+' of '+g.photos.length:'Waiting for photos…';g.previous.disabled=g.index<=0;g.next.disabled=g.index>=g.photos.length-1});groupTotalEl.textContent=ordered.length}
+function auditRender(){const body=$('#auditBody');body.replaceChildren();const pages=Math.ceil(auditRows.length/100);auditPage=Math.max(0,Math.min(auditPage,Math.max(0,pages-1)));const start=auditPage*100;for(let i=start;i<Math.min(start+100,auditRows.length);i++){const item=auditRows[i],tr=document.createElement('tr');for(const value of [String(i+1),item.location,item.dateTimeOriginal||'—',item.readError?'READ ERROR':item.hasOriginalDate?'READABLE ORIGINAL EXIF':'NO READABLE ORIGINAL EXIF']){const td=document.createElement('td');td.textContent=value;tr.append(td)}body.append(tr)}$('#auditCount').textContent=auditRows.length+' photo records received'+(scanFinished?' · full scan finished':' · scan in progress');$('#pageInfo').textContent=pages?'Page '+(auditPage+1)+' of '+pages:'Page 0 of 0';$('#auditPrev').disabled=auditPage<=0;$('#auditNext').disabled=auditPage>=pages-1;$('#downloadCsv').disabled=!scanFinished||!auditRows.length}
+function csvEscape(value){return '"'+String(value??'').replaceAll('"','""')+'"'}
+function downloadCsv(){const header=['Index','File','DateTimeOriginal','Has readable original EXIF','Read error'];const lines=[header.map(csvEscape).join(',')];auditRows.forEach((p,i)=>lines.push([i+1,p.location,p.dateTimeOriginal||'',p.hasOriginalDate?'yes':'no',p.readError?'yes':'no'].map(csvEscape).join(',')));const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='PicSorter-full-EXIF-audit.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function receive(event){if(event.type==='status'){statusBox.textContent=event.message;return}if(event.type==='folder-progress'){statusBox.textContent='Searching storage folders… '+event.foldersVisited+' folders checked; '+event.filesFound+' photo files found so far';skippedEl.textContent=event.skippedFolders;return}if(event.type==='start'){setCounts({total:event.total,scanned:0,readable:0,missing:0,readErrors:0,earliestDate:'checking…',skippedFolders:event.skippedFolders});statusBox.textContent='Found '+event.total+' photo files in '+event.foldersVisited+' reachable folders. Reading EXIF with ExifTool across the full history.';const parts=Object.entries(event.extensionCounts||{}).sort((a,b)=>a[0].localeCompare(b[0])).map(x=>x[0]+': '+x[1]);$('#extensions').textContent=parts.join(' · ')||'No supported photo files found';return}if(event.type==='photo'){const p=event.photo;auditRows.push(p);setCounts(event);currentPhoto.textContent='Photo '+event.scanned+' of '+event.total+': '+p.location+' · EXIF DateTimeOriginal: '+(p.dateTimeOriginal||'NO READABLE ORIGINAL DATE')+(p.readError?' · file read error':'');if(event.scanned===1||event.scanned%100===0)auditRender();return}if(event.type==='group'||event.type==='group-photo'){createOrUpdateGroupEvent(event);return}if(event.type==='progress'){setCounts(event);statusBox.textContent='Scanning '+event.scanned+' of '+event.total+' photos ('+event.completedPercent+'%) · '+event.readable+' readable EXIF dates · '+event.missing+' without a readable original date';return}if(event.type==='complete'){scanFinished=true;setCounts(event.result);const ordered=groupOrder();ordered.forEach((g,i)=>{groupHost.append(g.card);drawGroup(g,i)});groupTotalEl.textContent=ordered.length;statusBox.textContent='Finished scanning '+event.result.scanned+' photo files · '+event.result.readable+' readable EXIF original dates · '+event.result.missing+' without a readable original date · '+ordered.length+' date groups with 25+ photos.';if(event.result.skippedFolders)statusBox.textContent+=' Termux could not open '+event.result.skippedFolders+' folders, so those folders were excluded.';scanAgain.hidden=false;auditRender();return}if(event.type==='error'){statusBox.textContent=event.message;scanAgain.hidden=false}}
+async function scan(){scanAgain.hidden=true;scanFinished=false;auditRows.length=0;groupMap.clear();groupHost.replaceChildren();auditPage=0;setCounts({total:0,scanned:0,readable:0,missing:0,readErrors:0,earliestDate:'checking…',skippedFolders:0});$('#extensions').textContent='Scanning…';currentPhoto.textContent='Waiting for first photo…';auditRender();statusBox.textContent='Connecting to the V49 Termux scanner…';try{const response=await fetch(scanner+'/api/date-photo-audit-stream?minimum=25',{cache:'no-store'});if(!response.ok)throw new Error('Phone scan failed ('+response.status+').');if(!response.body)throw new Error('This browser cannot show live scan results.');const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',finished=false;while(true){const part=await reader.read();buffer+=decoder.decode(part.value||new Uint8Array(),{stream:!part.done});let nl;while((nl=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,nl).trim();buffer=buffer.slice(nl+1);if(!line)continue;const event=JSON.parse(line);receive(event);if(event.type==='complete')finished=true}if(part.done)break}if(buffer.trim()){const event=JSON.parse(buffer);receive(event);if(event.type==='complete')finished=true}if(!finished&&scanAgain.hidden)throw new Error('The scan connection ended before the results finished.')}catch(error){statusBox.textContent=error.message==='Failed to fetch'?'Could not reach the phone scanner. Start V49 in Termux, then reload Page 4.':error.message;scanAgain.hidden=false}}
+$('#scanAgain').addEventListener('click',scan);$('#auditPrev').addEventListener('click',()=>{auditPage--;auditRender()});$('#auditNext').addEventListener('click',()=>{auditPage++;auditRender()});$('#downloadCsv').addEventListener('click',downloadCsv);scan();
 </script>
 </body>
 </html>
