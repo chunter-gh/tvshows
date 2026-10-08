@@ -61,6 +61,11 @@ function receive(event){
   }
   if(event.type==='complete'){
     const data=event.result;
+    if(!Object.prototype.hasOwnProperty.call(data,'beforeCutoff')||!Object.prototype.hasOwnProperty.call(data,'earliestDate')){
+      earliestDate.textContent='requires latest V48';beforeCutoffCount.textContent='requires latest V48';
+      status.textContent='Full-history audit needs the latest V48 scanner. Restart it in Termux, then tap Scan again.';
+      rescan.hidden=false;return
+    }
     for(const item of data.dates){const group=groups.get(item.date);if(group)group.summary.textContent=item.count+' photos taken on this date'}
     if(!data.dates.length){const empty=document.createElement('p');empty.textContent='No dates in the past year have 50 or more photos.';results.append(empty)}
     scannedCount.textContent=data.scanned;totalCount.textContent=data.scanned;datedCount.textContent=data.dated;unreadableCount.textContent=data.unreadable;earliestDate.textContent=data.earliestDate||'none found';beforeCutoffCount.textContent=data.beforeCutoff;status.textContent='Finished · '+data.scanned+' photos scanned · '+data.dated+' readable original EXIF dates · '+data.unreadable+' without a readable original EXIF date';
