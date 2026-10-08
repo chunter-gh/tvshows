@@ -30,34 +30,61 @@ article p{margin:.3rem 0}
 <script>
 const scanner='http://127.0.0.1:3015';
 const status=document.querySelector('#status'),results=document.querySelector('#results'),rescan=document.querySelector('#rescan');
+const groups=new Map();
 function localDateKey(date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return y+'-'+m+'-'+d}
 function priorYear(date){const result=new Date(date);result.setFullYear(result.getFullYear()-1);return result}
 function dateLabel(key){const parts=key.split('-').map(Number);return new Date(parts[0],parts[1]-1,parts[2]).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}
+function receive(event){
+  if(event.type==='status'){status.textContent=event.message;return}
+  if(event.type==='folder-progress'){status.textContent='Searching phone folders… '+event.visited+' folders checked';return}
+  if(event.type==='start'){status.textContent='Found '+event.total+' photos in '+event.folders+' folders. Reading original capture dates…';return}
+  if(event.type==='progress'){status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
+  if(event.type==='match'){
+    let group=groups.get(event.date);
+    if(!group){
+      const card=document.createElement('article'),heading=document.createElement('h2'),summary=document.createElement('p');
+      heading.textContent='Group '+(groups.size+1)+' — '+dateLabel(event.date);
+      summary.textContent=event.count+' photos so far';
+      card.append(heading,summary);results.append(card);group={summary,card};groups.set(event.date,group);
+    }else group.summary.textContent=event.count+' photos so far';
+    status.textContent='Found '+dateLabel(event.date)+' — '+event.count+' photos. Continuing scan…';
+    return
+  }
+  if(event.type==='complete'){
+    const data=event.result;
+    for(const item of data.dates){const group=groups.get(item.date);if(group)group.summary.textContent=item.count+' photos taken on this date'}
+    if(!data.dates.length){const empty=document.createElement('p');empty.textContent='No dates in the past year have 50 or more photos.';results.append(empty)}
+    status.textContent='Finished · '+data.scanned+' photos scanned · '+data.dates.length+' qualifying dates · '+data.unreadable+' without a readable original date';
+    rescan.hidden=false;return
+  }
+  if(event.type==='error'){status.textContent=event.message;rescan.hidden=false}
+}
 async function scan(){
-  rescan.hidden=true;results.replaceChildren();status.textContent='Scanning all phone picture folders for original capture dates…';
+  rescan.hidden=true;results.replaceChildren();groups.clear();
+  status.textContent='Connecting to phone scanner…';
   const today=new Date(),since=localDateKey(priorYear(today)),through=localDateKey(today);
   try{
-    const response=await fetch(scanner+'/api/date-batch-dates?since='+encodeURIComponent(since)+'&through='+encodeURIComponent(through)+'&minimum=50',{cache:'no-store'});
+    const response=await fetch(scanner+'/api/date-batch-stream?since='+encodeURIComponent(since)+'&through='+encodeURIComponent(through)+'&minimum=50',{cache:'no-store'});
     if(!response.ok){
-      if(response.status===404)throw new Error('The phone server is V47. Start the V48 scanner once, then reload Page 4.');
-      const detail=await response.json().catch(()=>({}));
-      throw new Error(detail.error||'Phone scan failed ('+response.status+').');
+      if(response.status===404)throw new Error('Phone server V47 is active. Start PicSorter V48 in Termux, then reload Page 4.');
+      const detail=await response.json().catch(()=>({}));throw new Error(detail.error||'Phone scan failed ('+response.status+').')
     }
-    const data=await response.json(),dates=Array.isArray(data.dates)?data.dates:[];
-    status.textContent='Scanned '+data.scanned+' phone photos · '+dates.length+' dates with 50 or more photos · '+(data.unreadable||0)+' without a readable original date';
-    if(!dates.length){const empty=document.createElement('p');empty.textContent='No dates in the past year have 50 or more photos.';results.append(empty)}
-    dates.forEach((item,index)=>{
-      const card=document.createElement('article'),heading=document.createElement('h2'),summary=document.createElement('p');
-      heading.textContent='Group '+(index+1)+' — '+dateLabel(item.date);
-      summary.textContent=item.count+' photos taken on this date';
-      card.append(heading,summary);results.append(card)
-    });
+    if(!response.body)throw new Error('This browser cannot display live scan progress.');
+    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',completed=false;
+    while(true){
+      const part=await reader.read();buffer+=decoder.decode(part.value||new Uint8Array(),{stream:!part.done});
+      let newline;
+      while((newline=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,newline).trim();buffer=buffer.slice(newline+1);if(!line)continue;const event=JSON.parse(line);receive(event);if(event.type==='complete')completed=true}
+      if(part.done)break
+    }
+    if(buffer.trim()){const event=JSON.parse(buffer);receive(event);if(event.type==='complete')completed=true}
+    if(!completed&&rescan.hidden)throw new Error('The scan connection ended early. Tap Scan again to retry.');
   }catch(error){
     status.textContent=error.message==='Failed to fetch'
       ?'Could not reach the phone scanner. Start PicSorter V48 in Termux, then reload Page 4.'
       :error.message;
+    rescan.hidden=false;
   }
-  rescan.hidden=false;
 }
 rescan.addEventListener('click',scan);
 scan();
