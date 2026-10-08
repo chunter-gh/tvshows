@@ -21,13 +21,15 @@ article p{margin:.3rem 0}
 <main>
 <small>FLICK TO SORT · PAGE 4 · DATE BATCHES</small>
 <h1>Date Batch Capture</h1>
-<p>Finding dates from the last year with at least 50 photos, using each photo’s original capture date.</p>
+<p>Listing last-year dates with 50+ photos and auditing readable original capture dates across the full library.</p>
 <p id="status" role="status" aria-live="polite">Starting automatic phone scan…</p>
 <article id="exifStats" aria-live="polite">
 <h2>Original EXIF capture date readability</h2>
 <p>Photos scanned: <strong id="scannedCount">0</strong> / <span id="totalCount">searching folders…</span></p>
 <p>Readable original EXIF dates: <strong id="datedCount">0</strong></p>
 <p>No readable original EXIF date: <strong id="unreadableCount">0</strong></p>
+<p>Oldest readable original capture date: <strong id="earliestDate">checking…</strong></p>
+<p>Photos dated before October 31, 2025: <strong id="beforeCutoffCount">checking…</strong></p>
 </article>
 <button id="rescan" type="button" hidden>Scan again</button>
 <section id="results" aria-live="polite"></section>
@@ -36,7 +38,7 @@ article p{margin:.3rem 0}
 <script>
 const scanner='http://127.0.0.1:3015';
 const status=document.querySelector('#status'),results=document.querySelector('#results'),rescan=document.querySelector('#rescan');
-const scannedCount=document.querySelector('#scannedCount'),totalCount=document.querySelector('#totalCount'),datedCount=document.querySelector('#datedCount'),unreadableCount=document.querySelector('#unreadableCount');
+const scannedCount=document.querySelector('#scannedCount'),totalCount=document.querySelector('#totalCount'),datedCount=document.querySelector('#datedCount'),unreadableCount=document.querySelector('#unreadableCount'),earliestDate=document.querySelector('#earliestDate'),beforeCutoffCount=document.querySelector('#beforeCutoffCount');
 const groups=new Map();
 function localDateKey(date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return y+'-'+m+'-'+d}
 function priorYear(date){const result=new Date(date);result.setFullYear(result.getFullYear()-1);return result}
@@ -44,8 +46,8 @@ function dateLabel(key){const parts=key.split('-').map(Number);return new Date(p
 function receive(event){
   if(event.type==='status'){status.textContent=event.message;return}
   if(event.type==='folder-progress'){status.textContent='Searching phone folders… '+event.visited+' folders checked';totalCount.textContent='counting folders…';return}
-  if(event.type==='start'){totalCount.textContent=event.total;scannedCount.textContent='0';datedCount.textContent='0';unreadableCount.textContent='0';status.textContent='Found '+event.total+' photos in '+event.folders+' folders. Reading original capture dates…';return}
-  if(event.type==='progress'){scannedCount.textContent=event.scanned;totalCount.textContent=event.total;datedCount.textContent=Number.isFinite(event.dated)?event.dated:'counting…';unreadableCount.textContent=Number.isFinite(event.unreadable)?event.unreadable:'counting…';status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
+  if(event.type==='start'){totalCount.textContent=event.total;scannedCount.textContent='0';datedCount.textContent='0';unreadableCount.textContent='0';earliestDate.textContent='searching…';beforeCutoffCount.textContent='0';status.textContent='Found '+event.total+' photos in '+event.folders+' folders. Auditing all original capture dates…';return}
+  if(event.type==='progress'){scannedCount.textContent=event.scanned;totalCount.textContent=event.total;datedCount.textContent=Number.isFinite(event.dated)?event.dated:'counting…';unreadableCount.textContent=Number.isFinite(event.unreadable)?event.unreadable:'counting…';earliestDate.textContent=event.earliestDate||'none found yet';beforeCutoffCount.textContent=Number.isFinite(event.beforeCutoff)?event.beforeCutoff:'counting…';status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
   if(event.type==='match'){
     let group=groups.get(event.date);
     if(!group){
@@ -61,18 +63,18 @@ function receive(event){
     const data=event.result;
     for(const item of data.dates){const group=groups.get(item.date);if(group)group.summary.textContent=item.count+' photos taken on this date'}
     if(!data.dates.length){const empty=document.createElement('p');empty.textContent='No dates in the past year have 50 or more photos.';results.append(empty)}
-    scannedCount.textContent=data.scanned;totalCount.textContent=data.scanned;datedCount.textContent=data.dated;unreadableCount.textContent=data.unreadable;status.textContent='Finished · '+data.scanned+' photos scanned · '+data.dated+' readable original EXIF dates · '+data.unreadable+' without a readable original EXIF date';
+    scannedCount.textContent=data.scanned;totalCount.textContent=data.scanned;datedCount.textContent=data.dated;unreadableCount.textContent=data.unreadable;earliestDate.textContent=data.earliestDate||'none found';beforeCutoffCount.textContent=data.beforeCutoff;status.textContent='Finished · '+data.scanned+' photos scanned · '+data.dated+' readable original EXIF dates · '+data.unreadable+' without a readable original EXIF date';
     rescan.hidden=false;return
   }
   if(event.type==='error'){status.textContent=event.message;rescan.hidden=false}
 }
 async function scan(){
   rescan.hidden=true;results.replaceChildren();groups.clear();
-  scannedCount.textContent='0';totalCount.textContent='connecting…';datedCount.textContent='0';unreadableCount.textContent='0';
+  scannedCount.textContent='0';totalCount.textContent='connecting…';datedCount.textContent='0';unreadableCount.textContent='0';earliestDate.textContent='scanning…';beforeCutoffCount.textContent='0';
   status.textContent='Connecting to phone scanner…';
   const today=new Date(),since=localDateKey(priorYear(today)),through=localDateKey(today);
   try{
-    const response=await fetch(scanner+'/api/date-batch-stream?since='+encodeURIComponent(since)+'&through='+encodeURIComponent(through)+'&minimum=50',{cache:'no-store'});
+    const response=await fetch(scanner+'/api/date-batch-stream?since='+encodeURIComponent(since)+'&through='+encodeURIComponent(through)+'&minimum=50&auditBefore=2025-10-31',{cache:'no-store'});
     if(!response.ok){
       if(response.status===404)throw new Error('Phone scanner is an older version. Update to the latest V48 in Termux, then reload Page 4.');
       const detail=await response.json().catch(()=>({}));throw new Error(detail.error||'Phone scan failed ('+response.status+').')
