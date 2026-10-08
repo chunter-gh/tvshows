@@ -193,7 +193,7 @@ async function scanCaptureDateBatches(since,through,minimum,onProgress){
           }
         }
       }catch{unreadable++}
-      if(onProgress&&(scanned===1||scanned%10===0||scanned===total))onProgress({type:'progress',scanned,total,flagged:counts.size});
+      if(onProgress&&(scanned===1||scanned%10===0||scanned===total))onProgress({type:'progress',scanned,total,dated,unreadable,flagged:counts.size});
     }
   }
   const result={root:path.basename(photoRoot),scanned,dated,unreadable,since,through,minimum,
