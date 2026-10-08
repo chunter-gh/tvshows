@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page 4 — Date Batch Capture</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui,sans-serif;color:#f6f1db;background:#10243a}
+body{margin:0;background:linear-gradient(#173f67,#0b1726);min-height:100vh}
+main{max-width:820px;margin:auto;padding:22px}
+a{color:#ffda7e}
+button{background:#efc75d;color:#172b42;padding:14px 20px;border:0;border-radius:10px;font-weight:800;font-size:1rem}
+p{line-height:1.5;color:#d9e4ed}
+article{background:#183752;border:1px solid #53718a;padding:14px;margin:12px 0;border-radius:12px}
+article h2{font-size:1.1rem;margin:.1rem 0 .4rem;color:#ffda7e}
+article p{margin:.3rem 0}
+summary{cursor:pointer;color:#ffda7e}
+.file{font-size:.9rem;overflow-wrap:anywhere}
+.note{background:#433d25;padding:12px;border-radius:10px}
+</style>
+</head>
+<body>
+<main>
+<small>FLICK TO SORT · PAGE 4 · READ-ONLY</small>
+<h1>Date Batch Capture</h1>
+<p>Choose the DCIM or Pictures folder. Page 4 groups photos by their embedded original capture date. Photos stay on your phone; nothing is uploaded, moved, renamed, or deleted.</p>
+<p class="note">Batches use the EXIF DateTimeOriginal capture date from JPEG, TIFF, PNG, or WebP photos. Photos without that embedded date are listed separately and are never grouped by file modification date.</p>
+<button id="chooseFolder" type="button">Choose DCIM or Pictures folder</button>
+<button id="choosePhotos" type="button">Choose photos instead</button>
+<input id="folder" type="file" accept="image/*" multiple webkitdirectory directory hidden>
+<input id="photoFiles" type="file" accept="image/*" multiple hidden>
+<p id="status">Choose a folder or select photos directly.</p>
+<section id="results" aria-live="polite"></section>
+<p><a href="https://chunter.onrender.com/">Back to launcher</a></p>
+</main>
+<script>
+const folderInput=document.querySelector('#folder'),photoInput=document.querySelector('#photoFiles'),status=document.querySelector('#status'),results=document.querySelector('#results');
+document.querySelector('#chooseFolder').addEventListener('click',()=>folderInput.click());
+document.querySelector('#choosePhotos').addEventListener('click',()=>photoInput.click());
+const imageExt=/\.(jpe?g|png|gif|webp|bmp|tiff?|avif|heic|heif)$/i;
+function ascii(bytes,start,length){let s='';for(let i=0;i<length&&start+i<bytes.length;i++)s+=String.fromCharCode(bytes[start+i]);return s}
+function captureFromString(value){
+  const m=value.match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if(!m)return null;
+  const d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);
+  return Number.isNaN(d.getTime())?null:d
+}
+function tiffCapture(bytes,start,length){
+  const end=Math.min(bytes.length,start+length),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  if(start<0||start+8>end)return null;
+  const order=ascii(bytes,start,2),little=order==='II';
+  if(!little&&order!=='MM')return null;
+  const u16=o=>o+2<=end?view.getUint16(o,little):null;
+  const u32=o=>o+4<=end?view.getUint32(o,little):null;
+  if(u16(start+2)!==42)return null;
+  const firstOffset=u32(start+4);if(firstOffset===null)return null;
+  function ifd(offset){
+    const pos=start+offset,count=u16(pos);if(count===null||count>512)return null;
+    let exifOffset=null;
+    for(let i=0;i<count;i++){
+      const entry=pos+2+i*12;if(entry+12>end)break;
+      const tag=u16(entry),type=u16(entry+2),n=u32(entry+4);
+      if(tag===0x8769&&type===4)exifOffset=u32(entry+8);
+      if(tag===0x9003&&type===2&&n>0&&n<=128){
+        const valuePos=n<=4?entry+8:start+u32(entry+8);
+        if(valuePos>=start&&valuePos+n<=end)return captureFromString(ascii(bytes,valuePos,n).replace(/\0.*$/,'').trim());
+      }
+    }
+    return exifOffset
+  }
+  let result=ifd(firstOffset);
+  if(result instanceof Date)return result;
+  if(Number.isInteger(result)&&result>0){const nested=ifd(result);if(nested instanceof Date)return nested}
+  return null
+}
+async function captureDate(file){
+  const bytes=new Uint8Array(await file.arrayBuffer()),len=bytes.length;
+  if(len<8)return null;
+  if(bytes[0]===0xff&&bytes[1]===0xd8){
+    let p=2;
+    while(p+4<len){
+      if(bytes[p]!==0xff){p++;continue}
+      while(bytes[p]===0xff)p++;
+      const marker=bytes[p++];
+      if(marker===0xda||marker===0xd9)break;
+      if(marker===0xd8||marker===0x01||(marker>=0xd0&&marker<=0xd7))continue;
+      const size=(bytes[p]<<8)|bytes[p+1];if(size<2)break;
+      const data=p+2,dataLen=size-2;
+      if(marker===0xe1&&ascii(bytes,data,6)==='Exif\0\0')return tiffCapture(bytes,data+6,dataLen-6);
+      p+=size
+    }
+    return null
+  }
+  if((bytes[0]===0x49&&bytes[1]===0x49&&bytes[2]===42&&bytes[3]===0)||(bytes[0]===0x4d&&bytes[1]===0x4d&&bytes[2]===0&&bytes[3]===42))return tiffCapture(bytes,0,len);
+  if(ascii(bytes,0,8)==='\x89PNG\r\n\x1a\n'){
+    let p=8;
+    while(p+12<=len){const size=new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false),kind=ascii(bytes,p+4,4),data=p+8;if(data+size>len)break;if(kind==='eXIf')return tiffCapture(bytes,data,size);p+=12+size}
+    return null
+  }
+  if(ascii(bytes,0,4)==='RIFF'&&ascii(bytes,8,4)==='WEBP'){
+    let p=12;
+    while(p+8<=len){const kind=ascii(bytes,p,4),size=new DataView(bytes.buffer,bytes.byteOffset+p+4,4).getUint32(0,true),data=p+8;if(data+size>len)break;if(kind==='EXIF'){let start=data,n=size;if(ascii(bytes,start,6)==='Exif\0\0'){start+=6;n-=6}return tiffCapture(bytes,start,n)}p+=8+size+(size%2)}
+  }
+  return null
+}
+function dateKey(date){return new Date(date.getFullYear(),date.getMonth(),date.getDate()).getTime()}
+function appendMissing(files){
+  if(!files.length)return;
+  const details=document.createElement('details'),label=document.createElement('summary');
+  label.textContent='Photos without a readable original capture date ('+files.length+')';details.append(label);
+  for(const file of files){const line=document.createElement('p');line.className='file';line.textContent=file.webkitRelativePath||file.name;details.append(line)}
+  results.append(details)
+}
+async function showBatches(files){
+  results.replaceChildren();
+  const candidates=files.filter(f=>f.type.startsWith('image/')||imageExt.test(f.name));
+  const photos=[],missing=[];let next=0,done=0;
+  status.textContent='Selected '+candidates.length+' image files; reading embedded original capture dates…';
+  const worker=async()=>{while(next<candidates.length){
+    const file=candidates[next++];
+    try{const date=await captureDate(file);if(date)photos.push({file,date,day:dateKey(date)});else missing.push(file)}
+    catch{missing.push(file)}
+    done++;if(done%25===0||done===candidates.length)status.textContent='Reading capture dates… '+done+' of '+candidates.length
+  }};
+  await Promise.all(Array.from({length:Math.min(8,candidates.length)},worker));
+  photos.sort((a,b)=>a.day-b.day||a.date-b.date);
+  if(!candidates.length){status.textContent='No photos found in that folder.';return}
+  if(!photos.length){status.textContent='No readable embedded original capture dates found in '+candidates.length+' photos.';appendMissing(missing);return}
+  const batches=[];let batch=[];
+  for(const photo of photos){if(batch.length&&photo.day-batch[batch.length-1].day>36*60*60*1000){batches.push(batch);batch=[]}batch.push(photo)}
+  if(batch.length)batches.push(batch);
+  const groups=batches.sort((a,b)=>b[b.length-1].day-a[a.length-1].day);
+  const candidatesCount=groups.filter(g=>g.length>=10).length;
+  status.textContent=photos.length+' photos with original capture dates · '+groups.length+' date groups · '+candidatesCount+' groups with 10+ photos · '+missing.length+' without capture dates';
+  if(!groups.length)results.append(Object.assign(document.createElement('p'),{textContent:'No dated photo groups found.'}));
+  for(const group of groups){
+    const start=new Date(group[0].day),end=new Date(group[group.length-1].day),days=new Set(group.map(p=>p.day)).size;
+    const card=document.createElement('article'),heading=document.createElement('h2');
+    heading.textContent=start.toLocaleDateString()+(start.getTime()===end.getTime()?'':' – '+end.toLocaleDateString());
+    const summary=document.createElement('p');summary.textContent=group.length+' photos · '+days+' active days'+(group.length>=10?' · candidate batch':' · small date group');
+    const details=document.createElement('details'),label=document.createElement('summary');label.textContent='Show photo names and capture dates';details.append(label);
+    for(const item of group){const line=document.createElement('p');line.className='file';line.textContent=(item.file.webkitRelativePath||item.file.name)+' · '+item.date.toLocaleString();details.append(line)}
+    card.append(heading,summary,details);results.append(card)
+  }
+  appendMissing(missing)
+}
+for(const picker of [folderInput,photoInput])picker.addEventListener('change',()=>{results.replaceChildren();if(!picker.files||!picker.files.length){status.textContent='The picker returned no files. Try “Choose photos instead.”';return}showBatches(Array.from(picker.files));picker.value=''});
+</script>
+</body>
+</html>
