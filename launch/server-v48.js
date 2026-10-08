@@ -121,6 +121,42 @@ function readCaptureDate(bytes) {
   if((bytes[0]===0x49&&bytes[1]===0x49&&bytes[2]===42&&bytes[3]===0)||(bytes[0]===0x4d&&bytes[1]===0x4d&&bytes[2]===0&&bytes[3]===42))return tiff(0,bytes.length);
   if(ascii(0,8)==='\\x89PNG\\r\\n\\x1a\\n'){let p=8;while(p+12<=bytes.length){const n=new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false),kind=ascii(p+4,4),data=p+8;if(data+n>bytes.length)break;if(kind==='eXIf')return tiff(data,n);p+=12+n}return null}
   if(ascii(0,4)==='RIFF'&&ascii(8,4)==='WEBP'){let p=12;while(p+8<=bytes.length){const kind=ascii(p,4),n=new DataView(bytes.buffer,bytes.byteOffset+p+4,4).getUint32(0,true),data=p+8;if(data+n>bytes.length)break;if(kind==='EXIF'){let off=data,len=n;if(ascii(off,6)==='Exif\\0\\0'){off+=6;len-=6}return tiff(off,len)}p+=8+n+(n%2)}}
+
+  if (ascii(4,4) === 'ftyp') {
+    const boxList=(start,end)=>{
+      const boxes=[];let p=start;
+      while(p+8<=end){let size=new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false),header=8,type=ascii(p+4,4);
+        if(size===1){if(p+16>end)break;const high=new DataView(bytes.buffer,bytes.byteOffset+p+8,4).getUint32(0,false),low=new DataView(bytes.buffer,bytes.byteOffset+p+12,4).getUint32(0,false);size=high*4294967296+low;header=16}
+        else if(size===0)size=end-p;
+        if(size<header||p+size>end)break;boxes.push({type,start:p+header,end:p+size});p+=size
+      }
+      return boxes
+    };
+    const top=boxList(0,bytes.length),meta=top.find(box=>box.type==='meta');
+    if(meta){
+      const metaChildren=boxList(meta.start+4,meta.end),iinf=metaChildren.find(box=>box.type==='iinf'),iloc=metaChildren.find(box=>box.type==='iloc');
+      let exifId=null;
+      if(iinf){const version=bytes[iinf.start],count=version===0?new DataView(bytes.buffer,bytes.byteOffset+iinf.start+4,2).getUint16(0,false):new DataView(bytes.buffer,bytes.byteOffset+iinf.start+4,4).getUint32(0,false),entriesStart=iinf.start+(version===0?6:8);
+        for(const entry of boxList(entriesStart,iinf.end)){if(entry.type!=='infe')continue;const v=bytes[entry.start],idOffset=entry.start+4,id=v<3?new DataView(bytes.buffer,bytes.byteOffset+idOffset,2).getUint16(0,false):new DataView(bytes.buffer,bytes.byteOffset+idOffset,4).getUint32(0,false),typeOffset=idOffset+(v<3?4:6);if(ascii(typeOffset,4)==='Exif'){exifId=id;break}}
+      }
+      if(Number.isInteger(exifId)&&iloc){
+        const v=bytes[iloc.start],offsetSize=bytes[iloc.start+4]>>4,lengthSize=bytes[iloc.start+4]&15,baseSize=bytes[iloc.start+5]>>4,indexSize=(v===1||v===2)?bytes[iloc.start+5]&15:0;
+        let p=iloc.start+6;const itemCount=v<2?new DataView(bytes.buffer,bytes.byteOffset+p,2).getUint16(0,false):(new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false));p+=v<2?2:4;
+        const readN=(offset,size)=>{let n=0;for(let i=0;i<size;i++)n=n*256+bytes[offset+i];return n};
+        for(let i=0;i<itemCount&&p+4<=iloc.end;i++){
+          const id=v<2?new DataView(bytes.buffer,bytes.byteOffset+p,2).getUint16(0,false):new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0,false);p+=v<2?2:4;
+          let method=0;if(v===1||v===2){method=new DataView(bytes.buffer,bytes.byteOffset+p,2).getUint16(0,false)&15;p+=2}
+          p+=2;const base=readN(p,baseSize);p+=baseSize;const extents=new DataView(bytes.buffer,bytes.byteOffset+p,2).getUint16(0,false);p+=2;
+          for(let j=0;j<extents;j++){
+            if(indexSize)p+=indexSize;const offset=readN(p,offsetSize);p+=offsetSize;const length=readN(p,lengthSize);p+=lengthSize;
+            if(id!==exifId||j!==0||method!==0||length<8)continue;
+            const itemStart=base+offset;if(itemStart+4>bytes.length)continue;const exifOffset=new DataView(bytes.buffer,bytes.byteOffset+itemStart,4).getUint32(0,false),tiffStart=itemStart+4+exifOffset;
+            if(tiffStart<bytes.length)return tiff(tiffStart,Math.min(length,bytes.length-tiffStart))
+          }
+        }
+      }
+    }
+  }
   return null
 }
 async function scanCaptureDateBatches(since,through,minimum){
