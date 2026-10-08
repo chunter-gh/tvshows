@@ -1,1 +1,66 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Page 4 — Date Batch Capture</title><style>body{font:16px system-ui;background:linear-gradient(#173f67,#0b1726);color:#f6f1db;min-height:100vh;margin:0}main{max-width:760px;margin:auto;padding:24px}a{color:#ffda7e}button{background:#efc75d;color:#172b42;padding:14px 20px;border:0;border-radius:10px;font-weight:bold}article{background:#183752;padding:14px;margin:12px 0;border-radius:12px}p{line-height:1.5}</style></head><body><main><small>FLICK TO SORT · PAGE 4 · READ-ONLY PREVIEW</small><h1>Date Batch Capture</h1><p>Group photos by nearby file dates without moving, deleting, or renaming them.</p><p>This preview can open independently. Your current Termux server may not support the date-batch scanner endpoint yet.</p><button id="scan">Scan phone photos</button><p id="status">Ready to check the local scanner.</p><section id="results"></section><p><a href="https://chunter.onrender.com/">Back to launcher</a></p></main><script>document.querySelector('#scan').onclick=async()=>{const status=document.querySelector('#status'),results=document.querySelector('#results');status.textContent='Checking local scanner…';results.replaceChildren();try{const r=await fetch('http://127.0.0.1:3014/api/date-batches');if(!r.ok)throw Error('Scanner endpoint unavailable');const data=await r.json();status.textContent=data.scanned+' photos found · '+data.batches.length+' candidate batches';for(const b of data.batches){const card=document.createElement('article');const heading=document.createElement('h3');heading.textContent=b.start+(b.end!==b.start?' – '+b.end:'');const p=document.createElement('p');p.textContent=b.photos.length+' pictures · '+b.days+' active days';card.append(heading,p);const d=document.createElement('details'),s=document.createElement('summary');s.textContent='Show file list';d.append(s);for(const photo of b.photos){const line=document.createElement('p');line.textContent=photo.relative;d.append(line)}card.append(d);results.append(card)}}catch(e){status.textContent='Scanner API is unavailable on your running Termux server. This preview did not change anything.'}};</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page 4 — Date Batch Capture</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui,sans-serif;color:#f6f1db;background:#10243a}
+body{margin:0;background:linear-gradient(#173f67,#0b1726);min-height:100vh}
+main{max-width:820px;margin:auto;padding:22px}
+a{color:#ffda7e}
+button{background:#efc75d;color:#172b42;padding:14px 20px;border:0;border-radius:10px;font-weight:800;font-size:1rem}
+p{line-height:1.5;color:#d9e4ed}
+article{background:#183752;border:1px solid #53718a;padding:14px;margin:12px 0;border-radius:12px}
+article h2{font-size:1.1rem;margin:.1rem 0 .4rem;color:#ffda7e}
+article p{margin:.3rem 0}
+summary{cursor:pointer;color:#ffda7e}
+.file{font-size:.9rem;overflow-wrap:anywhere}
+.note{background:#433d25;padding:12px;border-radius:10px}
+</style>
+</head>
+<body>
+<main>
+<small>FLICK TO SORT · PAGE 4 · READ-ONLY</small>
+<h1>Date Batch Capture</h1>
+<p>Choose the DCIM or Pictures folder. Page 4 groups its photos by nearby file dates. Photos stay on your phone; nothing is uploaded, moved, renamed, or deleted.</p>
+<p class="note">This scan uses file modification dates. Copying photos can change those dates, so review the results as suggestions.</p>
+<button id="choose">Choose DCIM or Pictures folder</button>
+<input id="folder" type="file" accept="image/*" multiple webkitdirectory directory hidden>
+<p id="status">Ready. Choose a photo folder to scan.</p>
+<section id="results" aria-live="polite"></section>
+<p><a href="https://chunter.onrender.com/">Back to launcher</a></p>
+</main>
+<script>
+const input=document.querySelector('#folder'),status=document.querySelector('#status'),results=document.querySelector('#results');
+document.querySelector('#choose').addEventListener('click',()=>input.click());
+const imageExt=/\.(jpe?g|png|gif|webp|bmp|tiff?|avif|heic|heif)$/i;
+function dateKey(ms){const d=new Date(ms);return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()}
+function showBatches(files){
+  const photos=files.filter(f=>f.type.startsWith('image/')||imageExt.test(f.name)).map(f=>({file:f,day:dateKey(f.lastModified)})).sort((a,b)=>a.day-b.day);
+  if(!photos.length){status.textContent='No photos found in that folder.';return}
+  const batches=[];let batch=[];
+  for(const photo of photos){
+    if(batch.length&&photo.day-batch[batch.length-1].day>36*60*60*1000){batches.push(batch);batch=[]}
+    batch.push(photo)
+  }
+  if(batch.length)batches.push(batch);
+  const candidates=batches.filter(b=>b.length>=10).sort((a,b)=>b[b.length-1].day-a[a.length-1].day);
+  status.textContent=photos.length+' photos scanned · '+candidates.length+' candidate batches with 10 or more photos';
+  if(!candidates.length){results.append(Object.assign(document.createElement('p'),{textContent:'No batches of 10 or more photos found.'}));return}
+  for(const group of candidates){
+    const start=new Date(group[0].day),end=new Date(group[group.length-1].day);
+    const days=new Set(group.map(p=>p.day)).size;
+    const card=document.createElement('article'),heading=document.createElement('h2');
+    heading.textContent=start.toLocaleDateString()+(start.getTime()===end.getTime()?'':' – '+end.toLocaleDateString());
+    const summary=document.createElement('p');summary.textContent=group.length+' photos · '+days+' active days';
+    const details=document.createElement('details'),label=document.createElement('summary');label.textContent='Show photo names';
+    details.append(label);
+    for(const item of group){const line=document.createElement('p');line.className='file';line.textContent=item.file.webkitRelativePath||item.file.name;details.append(line)}
+    card.append(heading,summary,details);results.append(card)
+  }
+}
+input.addEventListener('change',()=>{results.replaceChildren();if(!input.files||!input.files.length){status.textContent='No folder selected.';return}showBatches(Array.from(input.files));input.value=''});
+</script>
+</body>
+</html>
