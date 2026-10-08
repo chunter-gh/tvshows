@@ -14,7 +14,7 @@ const preferredFoldersFile = path.join(os.homedir(), '.config', 'pics', 'preferr
 const extensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tif', '.tiff', '.avif', '.heic', '.heif']);
 const datePhotoExtensions = new Set(['.jpg','.jpeg','.jpe','.jfif','.png','.webp','.gif','.bmp','.tif','.tiff','.avif','.heic','.heif','.dng','.cr2','.cr3','.nef','.arw','.raf','.rw2','.orf','.pef','.srw','.3fr','.ari','.bay','.cap','.cin','.dcs','.dcr','.drf','.eip','.iiq','.k25','.kdc','.mdc','.mef','.mos','.mrw','.nrw','.obm','.ptx','.pxn','.r3d','.rwz','.sr2','.srf','.sti','.x3f','.raw','.mpo']);
 const mime = {
-  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.jpe': 'image/jpeg', '.jfif': 'image/jpeg', '.png': 'image/png',
   '.webp': 'image/webp', '.gif': 'image/gif', '.bmp': 'image/bmp',
   '.tif': 'image/tiff', '.tiff': 'image/tiff', '.avif': 'image/avif',
   '.heic': 'image/heic', '.heif': 'image/heif'
