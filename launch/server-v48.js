@@ -81,10 +81,13 @@ async function scanDestinationFolders() {
   });
 }
 
-async function scanPictureFolders() {
+async function scanPictureFolders(onProgress) {
   const results = [], pending = [photoRoot];
+  let visited = 0;
   while (pending.length) {
     const directory = pending.pop();
+    visited++;
+    if (onProgress && visited % 10 === 0) onProgress({ type: 'folder-progress', visited });
     let entries;
     try { entries = await fs.readdir(directory, { withFileTypes: true }); }
     catch (error) {
@@ -165,12 +168,38 @@ async function readCaptureDateFromFile(file){
   try{const size=(await handle.stat()).size,buffer=Buffer.alloc(Math.min(size,256*1024));if(buffer.length)await handle.read(buffer,0,buffer.length,0);return readCaptureDate(buffer)}
   finally{await handle.close()}
 }
-async function scanCaptureDateBatches(since,through,minimum){
-  const directories=await scanPictureFolders(),counts=new Map();let scanned=0,dated=0,unreadable=0;
-  for(const folder of directories){const rel=Buffer.from(folder.id,'base64url').toString('utf8'),directory=path.resolve(photoRoot,rel);if(directory!==photoRoot&&!insidePhotoRoot(directory))continue;let entries;try{entries=await fs.readdir(directory,{withFileTypes:true})}catch(error){if(['EACCES','EPERM','ENOENT'].includes(error.code))continue;throw error}
-    for(const entry of entries){if(!entry.isFile()||!extensions.has(path.extname(entry.name).toLowerCase()))continue;scanned++;try{const date=await readCaptureDateFromFile(path.join(directory,entry.name));if(!date){unreadable++;continue}dated++;if(date>=since&&date<=through)counts.set(date,(counts.get(date)||0)+1)}catch{unreadable++}}
+async function scanCaptureDateBatches(since,through,minimum,onProgress){
+  const directories=await scanPictureFolders(onProgress),counts=new Map();
+  const total=directories.reduce((sum,folder)=>sum+folder.imageCount,0);
+  let scanned=0,dated=0,unreadable=0;
+  if(onProgress)onProgress({type:'start',total,folders:directories.length,since,through,minimum});
+  for(const folder of directories){
+    const rel=Buffer.from(folder.id,'base64url').toString('utf8'),directory=path.resolve(photoRoot,rel);
+    if(directory!==photoRoot&&!insidePhotoRoot(directory))continue;
+    let entries;
+    try{entries=await fs.readdir(directory,{withFileTypes:true})}
+    catch(error){if(['EACCES','EPERM','ENOENT'].includes(error.code))continue;throw error}
+    for(const entry of entries){
+      if(!entry.isFile()||!extensions.has(path.extname(entry.name).toLowerCase()))continue;
+      scanned++;
+      try{
+        const date=await readCaptureDateFromFile(path.join(directory,entry.name));
+        if(!date)unreadable++;
+        else{
+          dated++;
+          if(date>=since&&date<=through){
+            const count=(counts.get(date)||0)+1;counts.set(date,count);
+            if(onProgress&&count>=minimum&&(count===minimum||count%10===0))onProgress({type:'match',date,count});
+          }
+        }
+      }catch{unreadable++}
+      if(onProgress&&(scanned===1||scanned%10===0||scanned===total))onProgress({type:'progress',scanned,total,flagged:counts.size});
+    }
   }
-  return{root:path.basename(photoRoot),scanned,dated,unreadable,since,through,minimum,dates:[...counts.entries()].filter(([,n])=>n>=minimum).sort((a,b)=>a[0].localeCompare(b[0])).map(([date,count])=>({date,count}))}
+  const result={root:path.basename(photoRoot),scanned,dated,unreadable,since,through,minimum,
+    dates:[...counts.entries()].filter(([,n])=>n>=minimum).sort((a,b)=>a[0].localeCompare(b[0])).map(([date,count])=>({date,count}))};
+  if(onProgress)onProgress({type:'complete',result});
+  return result;
 }
 
 function isInside(base, file) {
@@ -655,6 +684,18 @@ const server = http.createServer(async (request, response) => {
       json(response, 200, { root: path.basename(photoRoot), folders: pictureFolders });
     } else if (request.method === 'POST' && url.pathname === '/api/scan-picture-folders') {
       json(response, 200, { root: path.basename(photoRoot), folders: await scanPictureFolders() });
+    } else if (request.method === 'GET' && url.pathname === '/api/date-batch-stream') {
+      const since = url.searchParams.get('since') || '';
+      const through = url.searchParams.get('through') || new Date().toISOString().slice(0, 10);
+      const minimum = Math.max(1, Math.min(100000, Number(url.searchParams.get('minimum')) || 50));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || !/^\d{4}-\d{2}-\d{2}$/.test(through)) return json(response, 400, { error: 'Use YYYY-MM-DD dates for since and through.' });
+      response.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' });
+      const emit = event => { if (!response.destroyed) response.write(JSON.stringify(event) + '\n'); };
+      response.flushHeaders();
+      emit({ type: 'status', message: 'Searching phone folders…' });
+      try { await scanCaptureDateBatches(since, through, minimum, emit); }
+      catch (error) { emit({ type: 'error', message: error.message || 'Phone photo scan failed.' }); }
+      response.end();
     } else if (request.method === 'GET' && url.pathname === '/api/date-batch-dates') {
       const since = url.searchParams.get('since') || '';
       const through = url.searchParams.get('through') || new Date().toISOString().slice(0, 10);
