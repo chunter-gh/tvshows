@@ -25,15 +25,18 @@ summary{cursor:pointer;color:#ffda7e}
 <h1>Date Batch Capture</h1>
 <p>Choose the DCIM or Pictures folder. Page 4 groups photos by their embedded original capture date. Photos stay on your phone; nothing is uploaded, moved, renamed, or deleted.</p>
 <p class="note">Batches use the EXIF DateTimeOriginal capture date from JPEG, TIFF, PNG, or WebP photos. Photos without that embedded date are listed separately and are never grouped by file modification date.</p>
-<button id="choose">Choose DCIM or Pictures folder</button>
+<button id="chooseFolder" type="button">Choose DCIM or Pictures folder</button>
+<button id="choosePhotos" type="button">Choose photos instead</button>
 <input id="folder" type="file" accept="image/*" multiple webkitdirectory directory hidden>
-<p id="status">Ready. Choose a photo folder to scan.</p>
+<input id="photoFiles" type="file" accept="image/*" multiple hidden>
+<p id="status">Choose a folder or select photos directly.</p>
 <section id="results" aria-live="polite"></section>
 <p><a href="https://chunter.onrender.com/">Back to launcher</a></p>
 </main>
 <script>
-const input=document.querySelector('#folder'),status=document.querySelector('#status'),results=document.querySelector('#results');
-document.querySelector('#choose').addEventListener('click',()=>input.click());
+const folderInput=document.querySelector('#folder'),photoInput=document.querySelector('#photoFiles'),status=document.querySelector('#status'),results=document.querySelector('#results');
+document.querySelector('#chooseFolder').addEventListener('click',()=>folderInput.click());
+document.querySelector('#choosePhotos').addEventListener('click',()=>photoInput.click());
 const imageExt=/\.(jpe?g|png|gif|webp|bmp|tiff?|avif|heic|heif)$/i;
 function ascii(bytes,start,length){let s='';for(let i=0;i<length&&start+i<bytes.length;i++)s+=String.fromCharCode(bytes[start+i]);return s}
 function captureFromString(value){
@@ -112,7 +115,7 @@ async function showBatches(files){
   results.replaceChildren();
   const candidates=files.filter(f=>f.type.startsWith('image/')||imageExt.test(f.name));
   const photos=[],missing=[];let next=0,done=0;
-  status.textContent='Reading embedded original capture dates…';
+  status.textContent='Selected '+candidates.length+' image files; reading embedded original capture dates…';
   const worker=async()=>{while(next<candidates.length){
     const file=candidates[next++];
     try{const date=await captureDate(file);if(date)photos.push({file,date,day:dateKey(date)});else missing.push(file)}
@@ -126,21 +129,22 @@ async function showBatches(files){
   const batches=[];let batch=[];
   for(const photo of photos){if(batch.length&&photo.day-batch[batch.length-1].day>36*60*60*1000){batches.push(batch);batch=[]}batch.push(photo)}
   if(batch.length)batches.push(batch);
-  const groups=batches.filter(b=>b.length>=10).sort((a,b)=>b[b.length-1].day-a[a.length-1].day);
-  status.textContent=photos.length+' photos with original capture dates · '+groups.length+' candidate batches · '+missing.length+' without capture dates';
-  if(!groups.length)results.append(Object.assign(document.createElement('p'),{textContent:'No batches of 10 or more photos found.'}));
+  const groups=batches.sort((a,b)=>b[b.length-1].day-a[a.length-1].day);
+  const candidatesCount=groups.filter(g=>g.length>=10).length;
+  status.textContent=photos.length+' photos with original capture dates · '+groups.length+' date groups · '+candidatesCount+' groups with 10+ photos · '+missing.length+' without capture dates';
+  if(!groups.length)results.append(Object.assign(document.createElement('p'),{textContent:'No dated photo groups found.'}));
   for(const group of groups){
     const start=new Date(group[0].day),end=new Date(group[group.length-1].day),days=new Set(group.map(p=>p.day)).size;
     const card=document.createElement('article'),heading=document.createElement('h2');
     heading.textContent=start.toLocaleDateString()+(start.getTime()===end.getTime()?'':' – '+end.toLocaleDateString());
-    const summary=document.createElement('p');summary.textContent=group.length+' photos · '+days+' active days';
+    const summary=document.createElement('p');summary.textContent=group.length+' photos · '+days+' active days'+(group.length>=10?' · candidate batch':' · small date group');
     const details=document.createElement('details'),label=document.createElement('summary');label.textContent='Show photo names and capture dates';details.append(label);
     for(const item of group){const line=document.createElement('p');line.className='file';line.textContent=(item.file.webkitRelativePath||item.file.name)+' · '+item.date.toLocaleString();details.append(line)}
     card.append(heading,summary,details);results.append(card)
   }
   appendMissing(missing)
 }
-input.addEventListener('change',()=>{if(!input.files||!input.files.length){status.textContent='No folder selected.';return}showBatches(Array.from(input.files));input.value=''});
+for(const picker of [folderInput,photoInput])picker.addEventListener('change',()=>{results.replaceChildren();if(!picker.files||!picker.files.length){status.textContent='The picker returned no files. Try “Choose photos instead.”';return}showBatches(Array.from(picker.files));picker.value=''});
 </script>
 </body>
 </html>
