@@ -159,10 +159,16 @@ function readCaptureDate(bytes) {
   }
   return null
 }
+async function readCaptureDateFromFile(file){
+  if(['.heic','.heif'].includes(path.extname(file).toLowerCase()))return readCaptureDate(await fs.readFile(file));
+  const handle=await fs.open(file,'r');
+  try{const size=(await handle.stat()).size,buffer=Buffer.alloc(Math.min(size,256*1024));if(buffer.length)await handle.read(buffer,0,buffer.length,0);return readCaptureDate(buffer)}
+  finally{await handle.close()}
+}
 async function scanCaptureDateBatches(since,through,minimum){
   const directories=await scanPictureFolders(),counts=new Map();let scanned=0,dated=0,unreadable=0;
   for(const folder of directories){const rel=Buffer.from(folder.id,'base64url').toString('utf8'),directory=path.resolve(photoRoot,rel);if(directory!==photoRoot&&!insidePhotoRoot(directory))continue;let entries;try{entries=await fs.readdir(directory,{withFileTypes:true})}catch(error){if(['EACCES','EPERM','ENOENT'].includes(error.code))continue;throw error}
-    for(const entry of entries){if(!entry.isFile()||!extensions.has(path.extname(entry.name).toLowerCase()))continue;scanned++;try{const date=readCaptureDate(await fs.readFile(path.join(directory,entry.name)));if(!date){unreadable++;continue}dated++;if(date>=since&&date<=through)counts.set(date,(counts.get(date)||0)+1)}catch{unreadable++}}
+    for(const entry of entries){if(!entry.isFile()||!extensions.has(path.extname(entry.name).toLowerCase()))continue;scanned++;try{const date=await readCaptureDateFromFile(path.join(directory,entry.name));if(!date){unreadable++;continue}dated++;if(date>=since&&date<=through)counts.set(date,(counts.get(date)||0)+1)}catch{unreadable++}}
   }
   return{root:path.basename(photoRoot),scanned,dated,unreadable,since,through,minimum,dates:[...counts.entries()].filter(([,n])=>n>=minimum).sort((a,b)=>a[0].localeCompare(b[0])).map(([date,count])=>({date,count}))}
 }
