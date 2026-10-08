@@ -23,22 +23,28 @@ article p{margin:.3rem 0}
 <h1>Date Batch Capture</h1>
 <p>Finding dates from the last year with at least 50 photos, using each photo’s original capture date.</p>
 <p id="status" role="status" aria-live="polite">Starting automatic phone scan…</p>
+<article id="exifStats" aria-live="polite">
+<h2>Original EXIF capture date readability</h2>
+<p>Photos scanned: <strong id="scannedCount">0</strong> / <span id="totalCount">searching folders…</span></p>
+<p>Readable original EXIF dates: <strong id="datedCount">0</strong></p>
+<p>No readable original EXIF date: <strong id="unreadableCount">0</strong></p>
+</article>
 <button id="rescan" type="button" hidden>Scan again</button>
 <section id="results" aria-live="polite"></section>
 <p><a href="https://chunter.onrender.com/">Back to launcher</a></p>
 </main>
 <script>
 const scanner='http://127.0.0.1:3015';
-const status=document.querySelector('#status'),results=document.querySelector('#results'),rescan=document.querySelector('#rescan');
+const status=document.querySelector('#status'),results=document.querySelector('#results'),rescan=document.querySelector('#rescan');\nconst scannedCount=document.querySelector('#scannedCount'),totalCount=document.querySelector('#totalCount'),datedCount=document.querySelector('#datedCount'),unreadableCount=document.querySelector('#unreadableCount');
 const groups=new Map();
 function localDateKey(date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return y+'-'+m+'-'+d}
 function priorYear(date){const result=new Date(date);result.setFullYear(result.getFullYear()-1);return result}
 function dateLabel(key){const parts=key.split('-').map(Number);return new Date(parts[0],parts[1]-1,parts[2]).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}
 function receive(event){
   if(event.type==='status'){status.textContent=event.message;return}
-  if(event.type==='folder-progress'){status.textContent='Searching phone folders… '+event.visited+' folders checked';return}
-  if(event.type==='start'){status.textContent='Found '+event.total+' photos in '+event.folders+' folders. Reading original capture dates…';return}
-  if(event.type==='progress'){status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
+  if(event.type==='folder-progress'){status.textContent='Searching phone folders… '+event.visited+' folders checked';totalCount.textContent='counting folders…';return}
+  if(event.type==='start'){totalCount.textContent=event.total;scannedCount.textContent='0';datedCount.textContent='0';unreadableCount.textContent='0';status.textContent='Found '+event.total+' photos in '+event.folders+' folders. Reading original capture dates…';return}
+  if(event.type==='progress'){scannedCount.textContent=event.scanned;totalCount.textContent=event.total;datedCount.textContent=event.dated;unreadableCount.textContent=event.unreadable;status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
   if(event.type==='match'){
     let group=groups.get(event.date);
     if(!group){
@@ -54,13 +60,14 @@ function receive(event){
     const data=event.result;
     for(const item of data.dates){const group=groups.get(item.date);if(group)group.summary.textContent=item.count+' photos taken on this date'}
     if(!data.dates.length){const empty=document.createElement('p');empty.textContent='No dates in the past year have 50 or more photos.';results.append(empty)}
-    status.textContent='Finished · '+data.scanned+' photos scanned · '+data.dates.length+' qualifying dates · '+data.unreadable+' without a readable original date';
+    scannedCount.textContent=data.scanned;totalCount.textContent=data.scanned;datedCount.textContent=data.dated;unreadableCount.textContent=data.unreadable;status.textContent='Finished · '+data.scanned+' photos scanned · '+data.dated+' readable original EXIF dates · '+data.unreadable+' without a readable original EXIF date';
     rescan.hidden=false;return
   }
   if(event.type==='error'){status.textContent=event.message;rescan.hidden=false}
 }
 async function scan(){
   rescan.hidden=true;results.replaceChildren();groups.clear();
+  scannedCount.textContent='0';totalCount.textContent='connecting…';datedCount.textContent='0';unreadableCount.textContent='0';
   status.textContent='Connecting to phone scanner…';
   const today=new Date(),since=localDateKey(priorYear(today)),through=localDateKey(today);
   try{
