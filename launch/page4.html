@@ -44,7 +44,7 @@ async function scan(){
       throw new Error(detail.error||'Phone scan failed ('+response.status+').');
     }
     const data=await response.json(),dates=Array.isArray(data.dates)?data.dates:[];
-    status.textContent='Scanned '+data.scanned+' phone photos · '+dates.length+' dates with 50 or more photos · last year';
+    status.textContent='Scanned '+data.scanned+' phone photos · '+dates.length+' dates with 50 or more photos · '+(data.unreadable||0)+' without a readable original date';
     if(!dates.length){const empty=document.createElement('p');empty.textContent='No dates in the past year have 50 or more photos.';results.append(empty)}
     dates.forEach((item,index)=>{
       const card=document.createElement('article'),heading=document.createElement('h2'),summary=document.createElement('p');
