@@ -45,7 +45,7 @@ function receive(event){
   if(event.type==='status'){status.textContent=event.message;return}
   if(event.type==='folder-progress'){status.textContent='Searching phone folders… '+event.visited+' folders checked';totalCount.textContent='counting folders…';return}
   if(event.type==='start'){totalCount.textContent=event.total;scannedCount.textContent='0';datedCount.textContent='0';unreadableCount.textContent='0';status.textContent='Found '+event.total+' photos in '+event.folders+' folders. Reading original capture dates…';return}
-  if(event.type==='progress'){scannedCount.textContent=event.scanned;totalCount.textContent=event.total;datedCount.textContent=event.dated;unreadableCount.textContent=event.unreadable;status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
+  if(event.type==='progress'){scannedCount.textContent=event.scanned;totalCount.textContent=event.total;datedCount.textContent=Number.isFinite(event.dated)?event.dated:'counting…';unreadableCount.textContent=Number.isFinite(event.unreadable)?event.unreadable:'counting…';status.textContent='Scanning photo '+event.scanned+' of '+event.total+' · '+groups.size+' qualifying dates found';return}
   if(event.type==='match'){
     let group=groups.get(event.date);
     if(!group){
