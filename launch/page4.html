@@ -35,7 +35,8 @@ article p{margin:.3rem 0}
 </main>
 <script>
 const scanner='http://127.0.0.1:3015';
-const status=document.querySelector('#status'),results=document.querySelector('#results'),rescan=document.querySelector('#rescan');\nconst scannedCount=document.querySelector('#scannedCount'),totalCount=document.querySelector('#totalCount'),datedCount=document.querySelector('#datedCount'),unreadableCount=document.querySelector('#unreadableCount');
+const status=document.querySelector('#status'),results=document.querySelector('#results'),rescan=document.querySelector('#rescan');
+const scannedCount=document.querySelector('#scannedCount'),totalCount=document.querySelector('#totalCount'),datedCount=document.querySelector('#datedCount'),unreadableCount=document.querySelector('#unreadableCount');
 const groups=new Map();
 function localDateKey(date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return y+'-'+m+'-'+d}
 function priorYear(date){const result=new Date(date);result.setFullYear(result.getFullYear()-1);return result}
